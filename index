@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HabitFlow - 每日习惯追踪器</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            min-height: 100vh;
+        }
+
+        header {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo { font-size: 22px; font-weight: bold; display: flex; align-items: center; gap: 10px; }
+        .logo span { color: #58a6ff; }
+        .header-right { display: flex; gap: 10px; align-items: center; }
+
+        .btn {
+            padding: 8px 18px;
+            border: 1px solid #30363d;
+            background: #21262d;
+            color: #c9d1d9;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn:hover { background: #30363d; border-color: #484f58; }
+        .btn.green { background: #238636; border-color: #2ea043; color: white; }
+        .btn.green:hover { background: #2ea043; }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 30px 20px; }
+
+        /* 统计卡片 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 20px;
+            transition: 0.3s;
+        }
+        .stat-card:hover { border-color: #484f58; }
+        .stat-card .stat-value {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .stat-card .stat-label { font-size: 13px; color: #8b949e; }
+        .stat-card:nth-child(1) .stat-value { color: #58a6ff; }
+        .stat-card:nth-child(2) .stat-value { color: #3fb950; }
+        .stat-card:nth-child(3) .stat-value { color: #d29922; }
+        .stat-card:nth-child(4) .stat-value { color: #f0883e; }
+
+        /* 热力图区域 */
+        .heatmap-section {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .heatmap-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .heatmap-header h3 { font-size: 16px; font-weight: 600; }
+        .year-nav { display: flex; gap: 8px; align-items: center; }
+        .year-btn {
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 4px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .year-btn:hover { background: #30363d; }
+        .year-label { font-size: 14px; color: #8b949e; min-width: 50px; text-align: center; }
+
+        .heatmap-wrapper { overflow-x: auto; }
+        .heatmap {
+            display: flex;
+            gap: 3px;
+            padding: 4px 0;
+        }
+        .heatmap-week {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .heatmap-day {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: 0.15s;
+            position: relative;
+        }
+        .heatmap-day:hover { transform: scale(1.4); z-index: 10; }
+        .heatmap-day.level-0 { background: #161b22; border: 1px solid #1b2028; }
+        .heatmap-day.level-1 { background: #0e4429; }
+        .heatmap-day.level-2 { background: #006d32; }
+        .heatmap-day.level-3 { background: #26a641; }
+        .heatmap-day.level-4 { background: #39d353; }
+
+        .heatmap-labels { display: flex; gap: 3px; margin-bottom: 6px; padding-left: 32px; }
+        .heatmap-month { font-size: 11px; color: #8b949e; }
+        .heatmap-day-labels {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            margin-right: 6px;
+            padding-top: 0;
+        }
+        .heatmap-day-label { height: 14px; font-size: 11px; color: #8b949e; line-height: 14px; }
+
+        .heatmap-legend {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 12px;
+            justify-content: flex-end;
+            font-size: 12px;
+            color: #8b949e;
+        }
+        .legend-box {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        /* tooltip */
+        .tooltip {
+            position: fixed;
+            background: #1b1f24;
+            border: 1px solid #30363d;
+            color: #e6edf3;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 999;
+            display: none;
+            white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
+        /* 习惯列表 */
+        .habits-section {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .habits-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+        .habits-header h3 { font-size: 16px; font-weight: 600; }
+
+        .habit-list { display: flex; flex-direction: column; gap: 10px; }
+        .habit-item {
+            display: flex;
+            align-items: center;
+            padding: 14px 18px;
+            background: #0d1117;
+            border: 1px solid #21262d;
+            border-radius: 10px;
+            transition: 0.2s;
+            gap: 14px;
+        }
+        .habit-item:hover { border-color: #30363d; }
+        .habit-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        .habit-info { flex: 1; }
+        .habit-name { font-size: 15px; font-weight: 600; margin-bottom: 3px; }
+        .habit-streak { font-size: 12px; color: #8b949e; }
+        .habit-progress-bar {
+            width: 120px;
+            height: 6px;
+            background: #21262d;
+            border-radius: 3px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .habit-progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+        .habit-check {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 2px solid #30363d;
+            background: transparent;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: transparent;
+            flex-shrink: 0;
+        }
+        .habit-check:hover { border-color: #3fb950; }
+        .habit-check.done { background: #238636; border-color: #2ea043; color: white; }
+        .habit-del {
+            background: none;
+            border: none;
+            color: #484f58;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 6px;
+            border-radius: 6px;
+            transition: 0.2s;
+        }
+        .habit-del:hover { color: #f85149; background: rgba(248,81,73,0.1); }
+
+        /* 添加习惯表单 */
+        .add-form {
+            display: none;
+            padding: 18px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            margin-top: 14px;
+        }
+        .add-form.show { display: block; }
+        .form-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+        .form-input {
+            flex: 1;
+            padding: 10px 14px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            color: #e6edf3;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            min-width: 150px;
+        }
+        .form-input:focus { border-color: #58a6ff; }
+        .emoji-picker { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+        .emoji-opt {
+            width: 38px;
+            height: 38px;
+            border: 1px solid #30363d;
+            background: #161b22;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .emoji-opt:hover { border-color: #58a6ff; background: #21262d; }
+        .emoji-opt.selected { border-color: #58a6ff; background: #0c2d6b; }
+
+        /* 图表区域 */
+        .chart-section {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 24px;
+        }
+        .chart-section h3 { font-size: 16px; font-weight: 600; margin-bottom: 18px; }
+        .bar-chart { display: flex; align-items: flex-end; gap: 8px; height: 160px; padding: 0 10px; }
+        .bar-wrapper { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .bar {
+            width: 100%;
+            max-width: 50px;
+            background: linear-gradient(180deg, #3fb950, #238636);
+            border-radius: 4px 4px 0 0;
+            transition: height 0.5s ease;
+            min-height: 2px;
+        }
+        .bar-label { font-size: 11px; color: #8b949e; }
+        .bar-value { font-size: 11px; color: #3fb950; font-weight: 600; }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #1b1f24;
+            border: 1px solid #30363d;
+            color: white;
+            padding: 12px 26px;
+            border-radius: 10px;
+            font-size: 14px;
+            opacity: 0;
+            transition: 0.3s;
+            z-index: 200;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        @media (max-width: 768px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            header { padding: 12px 16px; flex-wrap: wrap; gap: 10px; }
+            .container { padding: 20px 12px; }
+            .habit-progress-bar { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">🟩 Habit<span>Flow</span></div>
+        <div class="header-right">
+            <button class="btn" onclick="exportData()">📥 导出数据</button>
+            <button class="btn" onclick="clearAllData()">🗑️ 清除数据</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- 统计卡片 -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="totalDays">0</div>
+                <div class="stat-label">📅 活跃天数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="currentStreak">0</div>
+                <div class="stat-label">🔥 当前连续</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="longestStreak">0</div>
+                <div class="stat-label">🏆 最长连续</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="todayDone">0/0</div>
+                <div class="stat-label">✅ 今日完成</div>
+            </div>
+        </div>
+
+        <!-- 热力图 -->
+        <div class="heatmap-section">
+            <div class="heatmap-header">
+                <h3>📊 活动热力图</h3>
+                <div class="year-nav">
+                    <button class="year-btn" onclick="changeYear(-1)">◀</button>
+                    <span class="year-label" id="yearLabel">2024</span>
+                    <button class="year-btn" onclick="changeYear(1)">▶</button>
+                </div>
+            </div>
+            <div class="heatmap-wrapper">
+                <div id="heatmapMonths" class="heatmap-labels"></div>
+                <div style="display:flex;">
+                    <div class="heatmap-day-labels">
+                        <div class="heatmap-day-label" style="visibility:hidden;">.</div>
+                        <div class="heatmap-day-label">一</div>
+                        <div class="heatmap-day-label" style="visibility:hidden;">.</div>
+                        <div class="heatmap-day-label">三</div>
+                        <div class="heatmap-day-label" style="visibility:hidden;">.</div>
+                        <div class="heatmap-day-label">五</div>
+                        <div class="heatmap-day-label" style="visibility:hidden;">.</div>
+                    </div>
+                    <div id="heatmap" class="heatmap"></div>
+                </div>
+            </div>
+            <div class="heatmap-legend">
+                <span>Less</span>
+                <div class="legend-box level-0" style="background:#161b22;border:1px solid #1b2028;"></div>
+                <div class="legend-box" style="background:#0e4429;"></div>
+                <div class="legend-box" style="background:#006d32;"></div>
+                <div class="legend-box" style="background:#26a641;"></div>
+                <div class="legend-box" style="background:#39d353;"></div>
+                <span>More</span>
+            </div>
+        </div>
+
+        <!-- 习惯列表 -->
+        <div class="habits-section">
+            <div class="habits-header">
+                <h3>📝 今日习惯</h3>
+                <button class="btn green" onclick="toggleAddForm()">＋ 添加习惯</button>
+            </div>
+            <div id="habitList" class="habit-list"></div>
+            <div id="addForm" class="add-form">
+                <div class="form-row">
+                    <input class="form-input" id="habitName" placeholder="习惯名称（如：读书 30 分钟）" maxlength="30">
+                    <select class="form-input" id="habitColor" style="flex:0.5;min-width:120px;">
+                        <option value="#3fb950">🟢 绿色</option>
+                        <option value="#58a6ff">🔵 蓝色</option>
+                        <option value="#d29922">🟡 黄色</option>
+                        <option value="#f0883e">🟠 橙色</option>
+                        <option value="#f85149">🔴 红色</option>
+                        <option value="#bc8cff">🟣 紫色</option>
+                    </select>
+                </div>
+                <div class="emoji-picker" id="emojiPicker"></div>
+                <button class="btn green" onclick="addHabit()" style="width:100%;justify-content:center;">✅ 确认添加</button>
+            </div>
+        </div>
+
+        <!-- 周统计图表 -->
+        <div class="chart-section">
+            <h3>📈 最近 7 天完成统计</h3>
+            <div class="bar-chart" id="barChart"></div>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ========== 数据管理 ==========
+        const STORE_KEY = 'habitflow_data';
+        let data = loadData();
+        let currentYear = new Date().getFullYear();
+        let selectedEmoji = '📚';
+
+        function loadData() {
+            const d = localStorage.getItem(STORE_KEY);
+            return d ? JSON.parse(d) : { habits: [], records: {}, created: Date.now() };
+        }
+        function saveData() { localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
+
+        function getDateStr(date) {
+            return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+        }
+        const today = getDateStr(new Date());
+
+        // ========== 默认习惯 ==========
+        if (data.habits.length === 0) {
+            data.habits = [
+                { id: 1, name: '晨间运动 30 分钟', emoji: '🏃', color: '#3fb950' },
+                { id: 2, name: '阅读 20 页书', emoji: '📖', color: '#58a6ff' },
+                { id: 3, name: '学习编程 1 小时', emoji: '💻', color: '#d29922' },
+                { id: 4, name: '冥想 10 分钟', emoji: '🧘', color: '#bc8cff' },
+                { id: 5, name: '早睡 (23:00前)', emoji: '😴', color: '#f0883e' }
+            ];
+            saveData();
+        }
+
+        // ========== Emoji 选择器 ==========
+        const emojis = ['📚','🏃','💻','🧘','😴','💧','🎯','✍️','🎵','🏋️','🚴','🧹','📝','💊','🥗','🎨','🌱','📷','🗣️','⏰'];
+        function renderEmojiPicker() {
+            const picker = document.getElementById('emojiPicker');
+            picker.innerHTML = emojis.map(e =>
+                `<div class="emoji-opt ${e === selectedEmoji ? 'selected' : ''}" onclick="selectEmoji('${e}')">${e}</div>`
+            ).join('');
+        }
+        function selectEmoji(e) {
+            selectedEmoji = e;
+            renderEmojiPicker();
+        }
+
+        // ========== 习惯列表 ==========
+        function renderHabits() {
+            const list = document.getElementById('habitList');
+            if (!data.records[today]) data.records[today] = [];
+            const todayRecords = data.records[today];
+
+            list.innerHTML = data.habits.map(h => {
+                const done = todayRecords.includes(h.id);
+                const streak = calcHabitStreak(h.id);
+                const weekDone = calcWeekCompletion(h.id);
+                return `
+                    <div class="habit-item">
+                        <div class="habit-icon" style="background:${h.color}22;">${h.emoji}</div>
+                        <div class="habit-info">
+                            <div class="habit-name" style="${done ? 'text-decoration:line-through;color:#8b949e;' : ''}">${h.name}</div>
+                            <div class="habit-streak">🔥 连续 ${streak} 天 · 本周 ${weekDone}/7</div>
+                        </div>
+                        <div class="habit-progress-bar">
+                            <div class="habit-progress-fill" style="width:${(weekDone/7)*100}%;background:${h.color};"></div>
+                        </div>
+                        <button class="habit-check ${done ? 'done' : ''}" onclick="toggleHabit(${h.id})">✓</button>
+                        <button class="habit-del" onclick="deleteHabit(${h.id})">×</button>
+                    </div>`;
+            }).join('');
+
+            // 更新今日完成
+            const doneCount = data.habits.filter(h => todayRecords.includes(h.id)).length;
+            document.getElementById('todayDone').textContent = `${doneCount}/${data.habits.length}`;
+        }
+
+        function toggleHabit(id) {
+            if (!data.records[today]) data.records[today] = [];
+            const idx = data.records[today].indexOf(id);
+            if (idx >= 0) data.records[today].splice(idx, 1);
+            else data.records[today].push(id);
+            saveData();
+            renderAll();
+        }
+
+        function deleteHabit(id) {
+            if (!confirm('确定删除此习惯？')) return;
+            data.habits = data.habits.filter(h => h.id !== id);
+            saveData();
+            renderAll();
+            showToast('🗑️ 习惯已删除');
+        }
+
+        function addHabit() {
+            const name = document.getElementById('habitName').value.trim();
+            if (!name) { showToast('⚠️ 请输入习惯名称'); return; }
+            const color = document.getElementById('habitColor').value;
+            const id = Date.now();
+            data.habits.push({ id, name, emoji: selectedEmoji, color });
+            saveData();
+            document.getElementById('habitName').value = '';
+            document.getElementById('addForm').classList.remove('show');
+            renderAll();
+            showToast('✅ 习惯已添加！');
+        }
+
+        function toggleAddForm() {
+            document.getElementById('addForm').classList.toggle('show');
+            renderEmojiPicker();
+        }
+
+        // ========== 连续天数计算 ==========
+        function calcHabitStreak(habitId) {
+            let streak = 0;
+            let d = new Date();
+            while (true) {
+                const key = getDateStr(d);
+                if (data.records[key] && data.records[key].includes(habitId)) {
+                    streak++;
+                    d.setDate(d.getDate() - 1);
+                } else break;
+            }
+            return streak;
+        }
+
+        function calcWeekCompletion(habitId) {
+            let count = 0;
+            for (let i = 0; i < 7; i++) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const key = getDateStr(d);
+                if (data.records[key] && data.records[key].includes(habitId)) count++;
+            }
+            return count;
+        }
+
+        // ========== 全局统计 ==========
+        function updateStats() {
+            const allDates = Object.keys(data.records).filter(k => data.records[k].length > 0);
+            document.getElementById('totalDays').textContent = allDates.length;
+
+            // 当前连续
+            let cur = 0, d = new Date();
+            while (true) {
+                const key = getDateStr(d);
+                if (data.records[key] && data.records[key].length > 0) { cur++; d.setDate(d.getDate()-1); }
+                else break;
+            }
+            document.getElementById('currentStreak').textContent = cur;
+
+            // 最长连续
+            let longest = 0, temp = 0;
+            const sorted = allDates.sort();
+            for (let i = 0; i < sorted.length; i++) {
+                if (i === 0) { temp = 1; }
+                else {
+                    const prev = new Date(sorted[i-1]);
+                    const curr = new Date(sorted[i]);
+                    const diff = (curr - prev) / (1000*60*60*24);
+                    temp = diff === 1 ? temp + 1 : 1;
+                }
+                longest = Math.max(longest, temp);
+            }
+            document.getElementById('longestStreak').textContent = longest;
+        }
+
+        // ========== 热力图 ==========
+        function renderHeatmap() {
+            document.getElementById('yearLabel').textContent = currentYear;
+            const container = document.getElementById('heatmap');
+            container.innerHTML = '';
+
+            const startDate = new Date(currentYear, 0, 1);
+            const endDate = new Date(currentYear, 11, 31);
+
+            // 调整到周一开始
+            const dayOfWeek = startDate.getDay();
+            const adjustedStart = new Date(startDate);
+            adjustedStart.setDate(adjustedStart.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+
+            let currentDate = new Date(adjustedStart);
+            let weekEl = null;
+
+            while (currentDate <= endDate || (weekEl && weekEl.children.length < 7)) {
+                if (!weekEl || weekEl.children.length === 7) {
+                    weekEl = document.createElement('div');
+                    weekEl.className = 'heatmap-week';
+                    container.appendChild(weekEl);
+                }
+
+                const dateStr = getDateStr(currentDate);
+                const count = (data.records[dateStr] || []).length;
+                const level = count === 0 ? 0 : count <= 1 ? 1 : count <= 2 ? 2 : count <= 3 ? 3 : 4;
+                const isCurrentYear = currentDate.getFullYear() === currentYear;
+
+                const dayEl = document.createElement('div');
+                dayEl.className = `heatmap-day level-${isCurrentYear ? level : 0}`;
+                dayEl.dataset.date = dateStr;
+                dayEl.dataset.count = count;
+
+                dayEl.addEventListener('mouseenter', showDayTooltip);
+                dayEl.addEventListener('mouseleave', hideTooltip);
+
+                weekEl.appendChild(dayEl);
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            // 月份标签
+            renderMonthLabels();
+        }
+
+        function renderMonthLabels() {
+            const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const container = document.getElementById('heatmapMonths');
+            container.innerHTML = '';
+            const weeksPerMonth = [5,4,4,5,4,4,5,4,5,4,4,5]; // 近似值
+            monthNames.forEach((m, i) => {
+                const span = document.createElement('span');
+                span.className = 'heatmap-month';
+                span.textContent = m;
+                span.style.minWidth = (weeksPerMonth[i] * 17) + 'px';
+                container.appendChild(span);
+            });
+        }
+
+        function showDayTooltip(e) {
+            const t = document.getElementById('tooltip');
+            const date = e.target.dataset.date;
+            const count = e.target.dataset.count;
+            t.innerHTML = `<strong>${count} 个习惯完成</strong><br>${date}`;
+            t.style.display = 'block';
+            t.style.left = (e.clientX + 12) + 'px';
+            t.style.top = (e.clientY - 50) + 'px';
+        }
+        function hideTooltip() { document.getElementById('tooltip').style.display = 'none'; }
+
+        function changeYear(delta) {
+            currentYear += delta;
+            renderHeatmap();
+        }
+
+        // ========== 周统计柱形图 ==========
+        function renderBarChart() {
+            const chart = document.getElementById('barChart');
+            const dayNames = ['日','一','二','三','四','五','六'];
+            let bars = [];
+
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const key = getDateStr(d);
+                const count = (data.records[key] || []).length;
+                const dayName = dayNames[d.getDay()];
+                const isToday = i === 0;
+                bars.push({ dayName, count, isToday, date: key });
+            }
+
+            const maxCount = Math.max(...bars.map(b => b.count), 1);
+            chart.innerHTML = bars.map(b => `
+                <div class="bar-wrapper">
+                    <div class="bar-value">${b.count}</div>
+                    <div class="bar" style="height:${(b.count/maxCount)*120}px;${b.isToday ? 'background:linear-gradient(180deg,#58a6ff,#1f6feb);' : ''}"></div>
+                    <div class="bar-label" style="${b.isToday ? 'color:#58a6ff;font-weight:bold;' : ''}">${b.isToday ? '今天' : b.dayName}</div>
+                </div>
+            `).join('');
+        }
+
+        // ========== 导出 & 清除 ==========
+        function exportData() {
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'habitflow_backup.json'; a.click();
+            URL.revokeObjectURL(url);
+            showToast('📥 数据已导出！');
+        }
+
+        function clearAllData() {
+            if (!confirm('确定清除所有数据？此操作不可恢复！')) return;
+            localStorage.removeItem(STORE_KEY);
+            data = { habits: [], records: {}, created: Date.now() };
+            data.habits = [
+                { id: 1, name: '晨间运动 30 分钟', emoji: '🏃', color: '#3fb950' },
+                { id: 2, name: '阅读 20 页书', emoji: '📖', color: '#58a6ff' },
+                { id: 3, name: '学习编程 1 小时', emoji: '💻', color: '#d29922' }
+            ];
+            saveData();
+            renderAll();
+            showToast('🗑️ 数据已清除');
+        }
+
+        // ========== Toast ==========
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2000);
+        }
+
+        // ========== 渲染全部 ==========
+        function renderAll() {
+            renderHabits();
+            renderHeatmap();
+            renderBarChart();
+            updateStats();
+        }
+
+        renderAll();
+        renderEmojiPicker();
+    </script>
+</body>
+</html>
